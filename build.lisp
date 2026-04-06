@@ -1,6 +1,7 @@
 (load (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname)))
 
 (push (truename ".") ql:*local-project-directories*)
+(push (truename ".") asdf:*central-registry*)
 
 (ql:register-local-projects)
 
