@@ -46,6 +46,10 @@
       {
         "from": "../dist-cl/booth-backend.exe",
         "to": "cl-backend/booth-backend.exe"
+      },
+      {
+        "from": "../dist-cl/sqlite3.dll",
+        "to": "cl-backend/sqlite3.dll"
       }
     ],
     "win": {

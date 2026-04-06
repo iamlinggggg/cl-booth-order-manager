@@ -67,11 +67,14 @@ function startBackend(): Promise<number> {
 
     console.log('[main] Starting backend:', backendPath);
 
+    const backendDir = path.dirname(backendPath);
     clProcess = spawn(backendPath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         BOOTH_PORT: '57284',
+        // sqlite3.dll 等のネイティブDLLをバックエンドと同じディレクトリに置くため PATH に追加
+        PATH: `${backendDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     });
 

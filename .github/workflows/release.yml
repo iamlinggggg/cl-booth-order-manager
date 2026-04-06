@@ -19,6 +19,9 @@ jobs:
       - name: Install SBCL
         run: choco install sbcl --yes
 
+      - name: Install SQLite
+        run: choco install sqlite --yes
+
       - name: Install Quicklisp
         shell: pwsh
         run: |
@@ -30,6 +33,35 @@ jobs:
       - name: Build CL backend
         shell: cmd
         run: sbcl --script build.lisp
+
+      - name: Bundle native DLLs
+        shell: pwsh
+        run: |
+          # sqlite3.dll を dist-cl/ にコピー (chocolatey でインストールしたもの)
+          $candidates = @(
+            "C:\ProgramData\chocolatey\lib\SQLite\tools\sqlite3.dll",
+            "C:\ProgramData\chocolatey\bin\sqlite3.dll"
+          )
+          $copied = $false
+          foreach ($path in $candidates) {
+            if (Test-Path $path) {
+              Copy-Item $path dist-cl\sqlite3.dll -Force
+              Write-Host "Copied sqlite3.dll from $path"
+              $copied = $true
+              break
+            }
+          }
+          if (-not $copied) {
+            # PATH から検索
+            $found = Get-ChildItem "C:\ProgramData\chocolatey" -Recurse -Filter "sqlite3.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) {
+              Copy-Item $found.FullName dist-cl\sqlite3.dll -Force
+              Write-Host "Copied sqlite3.dll from $($found.FullName)"
+            } else {
+              Write-Error "sqlite3.dll not found"
+              exit 1
+            }
+          }
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
