@@ -24,6 +24,16 @@ export const App: React.FC = () => {
     }
   }, [isReady]);
 
+  // 同期完了時にオーダーリストを自動更新
+  const prevIsSyncing = React.useRef<boolean | null>(null);
+  useEffect(() => {
+    const isSyncing = status?.isSyncing ?? false;
+    if (prevIsSyncing.current === true && !isSyncing) {
+      refetch();
+    }
+    prevIsSyncing.current = isSyncing;
+  }, [status?.isSyncing, refetch]);
+
   const handleLoginSuccess = useCallback(() => {
     refetchStatus();
     // 少し待ってからデータ再取得 (同期が始まるまで時間がかかる)

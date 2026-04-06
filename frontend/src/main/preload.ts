@@ -18,6 +18,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke('open-external', url),
 
+  // ローカルパスをエクスプローラーで開く (ファイルが選択された状態)
+  showInFolder: (path: string): Promise<void> =>
+    ipcRenderer.invoke('show-in-folder', path),
+
+  // フォルダ選択ダイアログを開く
+  selectFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke('select-folder'),
+
   // ログイン成功イベントのリスナー
   onLoginSuccess: (callback: () => void) => {
     ipcRenderer.on('login-success', callback);

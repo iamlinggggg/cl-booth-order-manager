@@ -52,36 +52,20 @@ export const LoginPanel: React.FC<Props> = ({ isLoggedIn, onLoginSuccess, onLogo
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
-      <div className="w-16 h-16 rounded-full bg-booth-pink/20 flex items-center justify-center mb-6">
-        <svg className="w-8 h-8 text-booth-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      </div>
-
-      <h2 className="text-xl font-bold text-white mb-2">BOOTHにログイン</h2>
-      <p className="text-gray-400 text-sm mb-6 max-w-sm">
-        ライブラリを自動取得するには、BOOTHアカウントでログインしてください。
-        ログイン情報はこのデバイスのみに保存されます。
-      </p>
-
+    <div className="flex items-center gap-2">
+      <span className="text-gray-400 text-sm">未ログイン</span>
       {error && (
-        <p className="text-red-400 text-sm mb-4">{error}</p>
+        <span className="text-red-400 text-xs">{error}</span>
       )}
-
       <button
         onClick={handleLogin}
         disabled={loading}
-        className="px-6 py-3 bg-booth-pink hover:bg-booth-pink/80 disabled:opacity-50
-                   text-white rounded-lg font-medium transition-colors mb-4"
+        className="px-3 py-1.5 bg-booth-pink hover:bg-booth-pink/80 disabled:opacity-50
+                   text-white rounded-lg text-sm font-medium transition-colors"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         {loading ? 'ログイン中...' : 'ブラウザでログイン'}
       </button>
-
-      <p className="text-gray-500 text-xs">
-        ログインせずに手動で商品を登録することもできます
-      </p>
     </div>
   );
 };

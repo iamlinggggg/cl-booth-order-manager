@@ -239,12 +239,14 @@
              :currency     (nth 8 row)
              :purchased-at (nth 9 row)
              :is-manual    (= 1 (or (nth 10 row) 0))
-             :download-count (nth 11 row)))
+             :download-count (nth 11 row)
+             :download-labels (or (nth 12 row) "")))
      (sqlite:execute-to-list *db*
        "SELECT o.id, o.booth_order_id, o.item_id, o.item_name, o.shop_name,
                o.item_url, o.thumbnail_url, o.price, o.currency,
                o.purchased_at, o.is_manual,
-               COUNT(d.id) AS download_count
+               COUNT(d.id) AS download_count,
+               GROUP_CONCAT(d.label, ' ') AS download_labels
         FROM orders o
         LEFT JOIN download_links d ON d.order_id = o.id
         GROUP BY o.id

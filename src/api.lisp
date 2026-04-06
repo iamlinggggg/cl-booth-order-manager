@@ -175,8 +175,9 @@
                        :|price|        (or (getf o :price) 0)
                        :|currency|     (or (getf o :currency) "JPY")
                        :|purchasedAt|  (or (getf o :purchased-at) "")
-                       :|isManual|     (if (getf o :is-manual) t :false)
-                       :|downloadCount| (or (getf o :download-count) 0)))
+                       :|isManual|      (if (getf o :is-manual) t :false)
+                       :|downloadCount| (or (getf o :download-count) 0)
+                       :|downloadLabels| (or (getf o :download-labels) "")))
                orders)))))
 
 (defun handle-add-manual-order ()

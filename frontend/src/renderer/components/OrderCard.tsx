@@ -12,8 +12,15 @@ export const OrderCard: React.FC<Props> = ({ order, onDelete }) => {
   const { links, loading } = useDownloadLinks(expanded ? order.id : null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const handleOpenUrl = (url: string) => {
-    window.electronAPI.openExternal(url);
+  const isLocalPath = (url: string) =>
+    !url.startsWith('http://') && !url.startsWith('https://');
+
+  const handleOpenLink = (url: string) => {
+    if (isLocalPath(url)) {
+      window.electronAPI.showInFolder(url);
+    } else {
+      window.electronAPI.openExternal(url);
+    }
   };
 
   const formatPrice = (price: number, currency: string) => {
@@ -118,7 +125,7 @@ export const OrderCard: React.FC<Props> = ({ order, onDelete }) => {
           <div className="flex gap-3 mt-2">
             {order.itemUrl && (
               <button
-                onClick={() => handleOpenUrl(order.itemUrl)}
+                onClick={() => handleOpenLink(order.itemUrl)}
                 className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
               >
                 商品ページ →
@@ -148,7 +155,7 @@ export const OrderCard: React.FC<Props> = ({ order, onDelete }) => {
               {links.map((link) => (
                 <button
                   key={link.id}
-                  onClick={() => handleOpenUrl(link.url)}
+                  onClick={() => handleOpenLink(link.url)}
                   className="flex items-center gap-2 w-full text-left hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors group"
                 >
                   <svg className="w-4 h-4 text-gray-500 group-hover:text-booth-pink flex-shrink-0 transition-colors"

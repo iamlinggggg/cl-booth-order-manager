@@ -11,6 +11,7 @@ export interface Order {
   purchasedAt: string;
   isManual: boolean;
   downloadCount: number;
+  downloadLabels: string;
 }
 
 export interface DownloadLink {
@@ -51,6 +52,8 @@ export interface ElectronAPI {
   getBackendError: () => Promise<string | null>;
   openLoginWindow: () => Promise<{ ok: boolean; error?: string }>;
   openExternal: (url: string) => Promise<void>;
+  showInFolder: (path: string) => Promise<void>;
+  selectFolder: () => Promise<string | null>;
   onLoginSuccess: (callback: () => void) => () => void;
   onBackendReady: (callback: (port: number) => void) => () => void;
   onBackendError: (callback: (err: string) => void) => () => void;

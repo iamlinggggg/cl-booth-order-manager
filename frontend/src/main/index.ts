@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   session,
   shell,
@@ -321,6 +322,17 @@ ipcMain.handle('open-login-window', async () => {
 
 ipcMain.handle('open-external', (_event, url: string) => {
   shell.openExternal(url);
+});
+
+ipcMain.handle('show-in-folder', (_event, filePath: string) => {
+  shell.showItemInFolder(filePath);
+});
+
+ipcMain.handle('select-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openDirectory'],
+  });
+  return result.canceled ? null : result.filePaths[0] ?? null;
 });
 
 // ---------------------------------------------------------------------------

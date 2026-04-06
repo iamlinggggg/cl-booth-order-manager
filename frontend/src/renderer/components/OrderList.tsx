@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Order } from '../types';
 import { OrderCard } from './OrderCard';
 
@@ -12,8 +12,10 @@ interface Props {
 type FilterType = 'all' | 'scraped' | 'manual';
 
 export const OrderList: React.FC<Props> = ({ orders, loading, error, onDelete }) => {
+  const [inputValue, setInputValue] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
+  const isComposing = useRef(false);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -23,7 +25,8 @@ export const OrderList: React.FC<Props> = ({ orders, loading, error, onDelete })
         const q = search.toLowerCase();
         return (
           o.itemName.toLowerCase().includes(q) ||
-          o.shopName.toLowerCase().includes(q)
+          o.shopName.toLowerCase().includes(q) ||
+          o.downloadLabels.toLowerCase().includes(q)
         );
       }
       return true;
@@ -63,9 +66,17 @@ export const OrderList: React.FC<Props> = ({ orders, loading, error, onDelete })
           </svg>
           <input
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="商品名・ショップ名で検索..."
+            value={inputValue}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              if (!isComposing.current) setSearch(e.target.value);
+            }}
+            onCompositionStart={() => { isComposing.current = true; }}
+            onCompositionEnd={(e) => {
+              isComposing.current = false;
+              setSearch((e.target as HTMLInputElement).value);
+            }}
+            placeholder="商品名・ショップ名・ファイル名で検索..."
             className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2
                        text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500"
           />

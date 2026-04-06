@@ -11,6 +11,7 @@ interface DLEntry {
   id: number;
   label: string;
   url: string;
+  type: 'url' | 'local';
 }
 
 export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded }) => {
@@ -21,7 +22,7 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded }) => {
   const [shopName, setShopName] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [price, setPrice] = useState('');
-  const [dlEntries, setDlEntries] = useState<DLEntry[]>([{ id: 1, label: '', url: '' }]);
+  const [dlEntries, setDlEntries] = useState<DLEntry[]>([{ id: 1, label: '', url: '', type: 'url' }]);
   const [preview, setPreview] = useState<ItemInfo | null>(null);
   const [fetchingInfo, setFetchingInfo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +50,7 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded }) => {
   const addDlEntry = () => {
     setDlEntries((prev) => [
       ...prev,
-      { id: Date.now(), label: '', url: '' },
+      { id: Date.now(), label: '', url: '', type: 'url' },
     ]);
   };
 
@@ -57,10 +58,15 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded }) => {
     setDlEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
-  const updateDlEntry = (id: number, field: 'label' | 'url', value: string) => {
+  const updateDlEntry = (id: number, field: 'label' | 'url' | 'type', value: string) => {
     setDlEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...e, [field]: value } : e))
     );
+  };
+
+  const selectFolder = async (id: number) => {
+    const path = await window.electronAPI.selectFolder();
+    if (path) updateDlEntry(id, 'url', path);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -189,33 +195,73 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded }) => {
             </div>
             <div className="space-y-2">
               {dlEntries.map((entry) => (
-                <div key={entry.id} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={entry.label}
-                    onChange={(e) => updateDlEntry(entry.id, 'label', e.target.value)}
-                    placeholder="ラベル"
-                    className="w-24 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5
-                               text-white text-sm focus:outline-none focus:border-booth-pink"
-                  />
-                  <input
-                    type="url"
-                    value={entry.url}
-                    onChange={(e) => updateDlEntry(entry.id, 'url', e.target.value)}
-                    placeholder="https://..."
-                    className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5
-                               text-white text-sm focus:outline-none focus:border-booth-pink"
-                  />
-                  {dlEntries.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeDlEntry(entry.id)}
-                      className="text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                <div key={entry.id} className="space-y-1">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={entry.label}
+                      onChange={(e) => updateDlEntry(entry.id, 'label', e.target.value)}
+                      placeholder="ラベル"
+                      className="w-24 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5
+                                 text-white text-sm focus:outline-none focus:border-booth-pink"
+                    />
+                    {/* URL / ローカル トグル */}
+                    <div className="flex rounded-lg overflow-hidden border border-gray-600 text-xs flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => updateDlEntry(entry.id, 'type', 'url')}
+                        className={`px-2 py-1.5 transition-colors ${entry.type === 'url' ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-gray-200'}`}
+                      >
+                        URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateDlEntry(entry.id, 'type', 'local')}
+                        className={`px-2 py-1.5 transition-colors ${entry.type === 'local' ? 'bg-gray-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-gray-200'}`}
+                      >
+                        ローカル
+                      </button>
+                    </div>
+                    {dlEntries.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeDlEntry(entry.id)}
+                        className="text-gray-500 hover:text-red-400 transition-colors ml-auto"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {entry.type === 'url' ? (
+                    <input
+                      type="url"
+                      value={entry.url}
+                      onChange={(e) => updateDlEntry(entry.id, 'url', e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5
+                                 text-white text-sm focus:outline-none focus:border-booth-pink"
+                    />
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={entry.url}
+                        onChange={(e) => updateDlEntry(entry.id, 'url', e.target.value)}
+                        placeholder="/home/user/downloads/item  または  C:\Downloads\item"
+                        className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5
+                                   text-white text-sm focus:outline-none focus:border-booth-pink font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => selectFolder(entry.id)}
+                        className="px-2 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600
+                                   text-gray-300 text-xs rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        参照...
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
