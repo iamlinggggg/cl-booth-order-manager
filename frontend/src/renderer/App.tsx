@@ -92,7 +92,7 @@ export const App: React.FC = () => {
                   <p className="text-red-400 font-semibold mb-2">バックエンドの起動に失敗しました</p>
                   <p className="text-gray-500 text-sm mb-4">{backendError}</p>
                   <p className="text-gray-600 text-xs">
-                    詳細は <code className="text-gray-400">%APPDATA%\cl-booth-library-manager\startup.log</code> を確認してください
+                    詳細は <code className="text-gray-400">%APPDATA%\BOOTH Library Manager\backend-error.log</code> を確認してください
                   </p>
                 </>
               ) : (

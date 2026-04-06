@@ -61,6 +61,16 @@ function getBackendArgs(backendPath: string): string[] {
   return [];
 }
 
+function getLogPath(): string {
+  return path.join(app.getPath('userData'), 'backend-error.log');
+}
+
+function writeErrorLog(content: string) {
+  try {
+    fs.writeFileSync(getLogPath(), content, 'utf-8');
+  } catch (_) {}
+}
+
 function startBackend(): Promise<number> {
   return new Promise((resolve, reject) => {
     const backendPath = getBackendPath();
@@ -74,17 +84,17 @@ function startBackend(): Promise<number> {
       env: {
         ...process.env,
         BOOTH_PORT: '57284',
-        // sqlite3.dll 等のネイティブDLLをバックエンドと同じディレクトリに置くため PATH に追加
         PATH: `${backendDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     });
 
-    // stdoutで "READY:<port>" を待機
     const timeout = setTimeout(() => {
       settle(new Error('Backend startup timeout (30s)'));
     }, 30000);
 
     let settled = false;
+    let stderrBuf = '';
+
     function settle(err: Error | null, port?: number) {
       if (settled) return;
       settled = true;
@@ -95,11 +105,9 @@ function startBackend(): Promise<number> {
 
     clProcess.stdout!.on('data', (data: Buffer) => {
       const text = data.toString();
-      // 本番ビルドではバックエンド出力をログしない (Cookie等の機密情報漏洩防止)
       if (!app.isPackaged) {
         console.log('[backend]', text.trim());
       }
-
       const match = text.match(/READY:(\d+)/);
       if (match) {
         clPort = parseInt(match[1], 10);
@@ -107,15 +115,30 @@ function startBackend(): Promise<number> {
       }
     });
 
+    // 常に stderr を収集する (本番でもエラーログに書き出す)
     clProcess.stderr!.on('data', (data: Buffer) => {
+      const text = data.toString();
+      stderrBuf += text;
       if (!app.isPackaged) {
-        console.error('[backend stderr]', data.toString().trim());
+        console.error('[backend stderr]', text.trim());
       }
     });
 
     clProcess.on('exit', (code) => {
       console.log('[main] Backend exited with code:', code);
-      const err = new Error(`Backend exited with code: ${code}`);
+      // stderr の内容をログファイルに書き出す
+      const logContent = [
+        `Exit code: ${code}`,
+        `Backend path: ${backendPath}`,
+        `Time: ${new Date().toISOString()}`,
+        '',
+        '--- stderr ---',
+        stderrBuf || '(empty)',
+      ].join('\n');
+      writeErrorLog(logContent);
+
+      const detail = stderrBuf.trim() ? `\n${stderrBuf.trim()}` : '';
+      const err = new Error(`Backend exited with code: ${code}${detail}`);
       clBackendError = err.message;
       settle(err);
       clProcess = null;
@@ -123,6 +146,7 @@ function startBackend(): Promise<number> {
     });
 
     clProcess.on('error', (err) => {
+      writeErrorLog(`Spawn error: ${err.message}\nBackend path: ${backendPath}`);
       clBackendError = err.message;
       settle(err);
     });

@@ -8,15 +8,20 @@
 ;; CFFI DLL 検索パス設定 (重要)
 ;;
 ;; CFFI は sb-ext:*init-hooks* に reopen-foreign-libraries を登録している。
-;; このフックより先に push することで、イメージ復元時に exe と同じディレクトリを
-;; 検索パスに追加してから DLL を再ロードさせる。
-;; (push は先頭追加のため、後から push したものが先に実行される)
+;; push は先頭追加なので、ここで push したフックが CFFI のフックより先に実行される。
+;; これにより、イメージ復元時に exe ディレクトリを検索パスへ追加してから
+;; CFFI が DLL を再ロードするようになる。
 ;; ---------------------------------------------------------------------------
 (push (lambda ()
-        (let ((exe-dir (directory-namestring
-                        (truename sb-ext:*runtime-pathname*))))
-          (pushnew exe-dir cffi:*foreign-library-directories* :test #'equal)
-          (format t "[startup] CFFI search path: ~A~%" exe-dir)))
+        (handler-case
+            (let ((exe-dir (directory-namestring
+                            (truename sb-ext:*runtime-pathname*))))
+              (pushnew exe-dir cffi:*foreign-library-directories* :test #'equal)
+              (format *error-output* "[cffi-init] DLL search path: ~A~%" exe-dir)
+              (force-output *error-output*))
+          (error (c)
+            (format *error-output* "[cffi-init] WARNING: path setup failed: ~A~%" c)
+            (force-output *error-output*))))
       sb-ext:*init-hooks*)
 
 ;; ビルド時にロードされている外部ライブラリ一覧を表示 (バンドル対象DLL確認用)
