@@ -16,6 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Sync version from git tag
+        shell: bash
+        run: bash scripts/set-version.sh "${GITHUB_REF_NAME#v}"
+
       - name: Install SBCL
         run: choco install sbcl --yes
 
@@ -93,7 +97,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
