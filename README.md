@@ -11,7 +11,6 @@ Common Lisp と TypeScript (WebView2) を組み合わせて開発された、Win
 [**Download cl-booth-library-manager (Releases)**](https://github.com/iamlinggggg/cl-booth-library-manager/releases)
 
 ## 技術スタック
-本アプリは、バックエンドとフロントエンドを分離したモダンな構成を採用しています。
 
 * **Backend:** Common Lisp (ASDF, CFFI)
 * **Frontend:** TypeScript / HTML / CSS (WebView2 上で動作)
