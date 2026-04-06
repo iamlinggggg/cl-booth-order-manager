@@ -52,36 +52,39 @@
                  (return-from do-sync :no-auth))
 
                (format t "[scheduler] Starting sync at ~A~%" (unix-now))
-               (let ((orders (cl-booth-library-manager.scraper:fetch-orders cookies)))
-                 ;; 各注文をDBに保存
-                 (dolist (order orders)
-                   (dolist (item (getf order :items))
-                     (let ((order-id
-                             (cl-booth-library-manager.db:upsert-order
-                              ;; booth_order_id = "<注文ID>-<商品ID>" で一意にする
-                              (format nil "~A-~A"
-                                      (getf order :order-id)
-                                      (or (getf item :item-id) "0"))
-                              (getf item :item-id)
-                              (getf item :item-name)
-                              (getf item :shop-name)
-                              (getf item :item-url)
-                              (getf item :thumb-url)
-                              (parse-price (getf item :price))
-                              "JPY"
-                              (getf order :purchased-at))))
-                       (cl-booth-library-manager.db:insert-download-links
-                        order-id
-                        (getf item :downloads)))))
+               (unwind-protect
+                    (let ((orders (cl-booth-library-manager.scraper:fetch-orders cookies)))
+                      ;; 各注文をDBに保存
+                      (dolist (order orders)
+                        (dolist (item (getf order :items))
+                          (let ((order-id
+                                  (cl-booth-library-manager.db:upsert-order
+                                   ;; booth_order_id = "<注文ID>-<商品ID>" で一意にする
+                                   (format nil "~A-~A"
+                                           (getf order :order-id)
+                                           (or (getf item :item-id) "0"))
+                                   (getf item :item-id)
+                                   (getf item :item-name)
+                                   (getf item :shop-name)
+                                   (getf item :item-url)
+                                   (getf item :thumb-url)
+                                   (parse-price (getf item :price))
+                                   "JPY"
+                                   (getf order :purchased-at))))
+                            (cl-booth-library-manager.db:insert-download-links
+                             order-id
+                             (getf item :downloads)))))
 
-                 ;; 最終同期時刻を記録
-                 (let ((now (unix-now)))
-                   (setf *last-synced-at* now)
-                   (cl-booth-library-manager.db:set-last-synced-at now))
+                      ;; 最終同期時刻を記録
+                      (let ((now (unix-now)))
+                        (setf *last-synced-at* now)
+                        (cl-booth-library-manager.db:set-last-synced-at now))
 
-                 (format t "[scheduler] Sync complete. ~A orders processed~%"
-                         (length orders))
-                 :success))
+                      (format t "[scheduler] Sync complete. ~A orders processed~%"
+                              (length orders))
+                      :success)
+                 ;; メモリ上のCookieデータをゼロクリア
+                 (fill cookies #\Nul)))
            (cl-booth-library-manager.scraper:cookie-expired-error (c)
              (format *error-output* "[scheduler] Cookie expired: ~A~%" c)
              (cl-booth-library-manager.db:clear-cookies)

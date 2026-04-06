@@ -262,6 +262,8 @@ function openLoginWindow(): Promise<void> {
 
       try {
         await extractAndSendCookies(loginWin.webContents.session);
+        // バックエンドへの送信完了後、Electron セッションのCookieを消去する
+        await loginWin.webContents.session.clearStorageData({ storages: ['cookies'] });
         loginWin.close();
         resolve();
       } catch (err) {
@@ -352,6 +354,9 @@ async function init() {
     mainWindow?.webContents.send('backend-error', String(err));
   }
 }
+
+// アプリ専用の userData フォルダを明示指定 (Edge など他アプリのデータと混在させない)
+app.setPath('userData', path.join(app.getPath('appData'), 'cl-booth-library-manager'));
 
 app.whenReady().then(init);
 

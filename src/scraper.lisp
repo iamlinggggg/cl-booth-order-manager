@@ -80,11 +80,15 @@
       (string-trim '(#\Space #\Newline) result))))
 
 (defun absolutize-url (url base)
-  "相対URLを絶対URLに変換する"
+  "相対URLを絶対URLに変換する。localhost 以外の http:// は https:// に強制アップグレード"
   (cond
     ((null url) nil)
-    ((or (uiop:string-prefix-p "http://" url)
-         (uiop:string-prefix-p "https://" url)) url)
+    ((uiop:string-prefix-p "https://" url) url)
+    ;; localhost / 127.0.0.1 はそのまま、それ以外は https に強制
+    ((uiop:string-prefix-p "http://" url)
+     (if (or (search "localhost" url) (search "127.0.0.1" url))
+         url
+         (concatenate 'string "https://" (subseq url 7))))
     ((uiop:string-prefix-p "//" url) (concatenate 'string "https:" url))
     ((uiop:string-prefix-p "/" url)
      (cl-ppcre:regex-replace "^(https?://[^/]+).*" base (concatenate 'string "\\1" url)))
