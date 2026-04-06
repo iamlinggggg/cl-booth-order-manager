@@ -77,8 +77,17 @@ function startBackend(): Promise<number> {
 
     // stdoutで "READY:<port>" を待機
     const timeout = setTimeout(() => {
-      reject(new Error('Backend startup timeout (30s)'));
+      settle(new Error('Backend startup timeout (30s)'));
     }, 30000);
+
+    let settled = false;
+    function settle(err: Error | null, port?: number) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (err) reject(err);
+      else resolve(port!);
+    }
 
     clProcess.stdout!.on('data', (data: Buffer) => {
       const text = data.toString();
@@ -86,9 +95,8 @@ function startBackend(): Promise<number> {
 
       const match = text.match(/READY:(\d+)/);
       if (match) {
-        clearTimeout(timeout);
         clPort = parseInt(match[1], 10);
-        resolve(clPort);
+        settle(null, clPort);
       }
     });
 
@@ -98,13 +106,13 @@ function startBackend(): Promise<number> {
 
     clProcess.on('exit', (code) => {
       console.log('[main] Backend exited with code:', code);
+      settle(new Error(`Backend exited with code: ${code}`));
       clProcess = null;
       clPort = null;
     });
 
     clProcess.on('error', (err) => {
-      clearTimeout(timeout);
-      reject(err);
+      settle(err);
     });
   });
 }
@@ -283,14 +291,17 @@ ipcMain.handle('open-external', (_event, url: string) => {
 // ---------------------------------------------------------------------------
 
 async function init() {
+  // ウィンドウを先に作成してバックエンド起動を待たない
+  createMainWindow();
+
   try {
     await startBackend();
     console.log('[main] Backend ready on port:', clPort);
+    mainWindow?.webContents.send('backend-ready', clPort);
   } catch (err) {
     console.error('[main] Failed to start backend:', err);
-    // バックエンドなしでも起動は続行 (手動モード用)
+    mainWindow?.webContents.send('backend-error', String(err));
   }
-  createMainWindow();
 }
 
 app.whenReady().then(init);

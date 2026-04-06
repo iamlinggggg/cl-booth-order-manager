@@ -1,6 +1,6 @@
 (load (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname)))
 
-(asdf:load-asd (merge-pathnames "cl-booth-order-manager.asd" (truename ".")))
+(asdf:load-asd (merge-pathnames "cl-booth-library-manager.asd" (truename ".")))
 
 (ql:quickload :cl-booth-library-manager :silent t)
 
