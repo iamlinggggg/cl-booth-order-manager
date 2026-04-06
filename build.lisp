@@ -1,9 +1,6 @@
 (load (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname)))
 
-(push (truename ".") ql:*local-project-directories*)
-(push (truename ".") asdf:*central-registry*)
-
-(ql:register-local-projects)
+(asdf:load-asd (merge-pathnames "cl-booth-order-manager.asd" (truename ".")))
 
 (ql:quickload :cl-booth-library-manager :silent t)
 
