@@ -51,6 +51,8 @@ export interface ElectronAPI {
   openLoginWindow: () => Promise<{ ok: boolean; error?: string }>;
   openExternal: (url: string) => Promise<void>;
   onLoginSuccess: (callback: () => void) => () => void;
+  onBackendReady: (callback: (port: number) => void) => () => void;
+  onBackendError: (callback: (err: string) => void) => () => void;
 }
 
 declare global {

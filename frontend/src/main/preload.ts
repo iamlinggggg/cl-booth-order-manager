@@ -20,4 +20,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // クリーンアップ関数を返す
     return () => ipcRenderer.removeListener('login-success', callback);
   },
+
+  // バックエンド起動完了イベントのリスナー
+  onBackendReady: (callback: (port: number) => void) => {
+    const handler = (_: unknown, port: number) => callback(port);
+    ipcRenderer.on('backend-ready', handler);
+    return () => ipcRenderer.removeListener('backend-ready', handler);
+  },
+
+  // バックエンド起動失敗イベントのリスナー
+  onBackendError: (callback: (err: string) => void) => {
+    const handler = (_: unknown, err: string) => callback(err);
+    ipcRenderer.on('backend-error', handler);
+    return () => ipcRenderer.removeListener('backend-error', handler);
+  },
 });

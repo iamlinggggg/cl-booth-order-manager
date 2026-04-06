@@ -24,11 +24,25 @@ export function useApi() {
   const [isReady, setIsReady] = useState(cachedPort !== null);
 
   useEffect(() => {
-    if (cachedPort) return;
-    resolvePort().then((p) => {
+    // 初回: すでにバックエンドが起動済みなら即座に取得
+    if (!cachedPort) {
+      resolvePort().then((p) => {
+        if (p) {
+          setPort(p);
+          setIsReady(true);
+        }
+      });
+    }
+
+    // バックエンドが後から起動した場合に備えてイベントを購読
+    const unsubReady = window.electronAPI.onBackendReady((p) => {
+      cachedPort = p;
+      portPromise = null;
       setPort(p);
-      setIsReady(p !== null);
+      setIsReady(true);
     });
+
+    return () => { unsubReady(); };
   }, []);
 
   const get = useCallback(
