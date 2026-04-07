@@ -166,12 +166,13 @@
                                 cookies
                                 (jonathan:to-json cookies))))
           (cl-booth-library-manager.db:save-cookies cookies-json))
-        ;; ログイン直後に同期開始
-        (handler-case
-            (cl-booth-library-manager.scheduler:trigger-sync)
-          (error (c)
-            (format *error-output* "[api] trigger-sync failed: ~A~%" c)))
-        (json-ok (list :|message| "Cookies saved, sync started"))))))
+        ;; ログイン直後に同期開始 (自動同期が有効な場合のみ)
+        (when (getf (cl-booth-library-manager.scheduler:get-settings) :auto-sync-enabled)
+          (handler-case
+              (cl-booth-library-manager.scheduler:trigger-sync)
+            (error (c)
+              (format *error-output* "[api] trigger-sync failed: ~A~%" c))))
+        (json-ok (list :|message| "Cookies saved"))))))
 
 (defun handle-clear-cookies ()
   (with-error-handling

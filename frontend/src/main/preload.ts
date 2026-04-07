@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   applyUpdate: (): Promise<void> =>
     ipcRenderer.invoke('apply-update'),
 
+  // 開発時のみ: アップデートダイアログのテスト用トリガー
+  devTriggerUpdate: (): Promise<void> =>
+    ipcRenderer.invoke('dev-trigger-update'),
+
   // ログイン成功イベントのリスナー
   onLoginSuccess: (callback: () => void) => {
     ipcRenderer.on('login-success', callback);

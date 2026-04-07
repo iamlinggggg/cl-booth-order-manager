@@ -430,6 +430,20 @@ ipcMain.handle('apply-update', () => {
   app.quit();
 });
 
+// 開発時のみ: アップデートダイアログのテスト用 IPC
+if (!app.isPackaged) {
+  ipcMain.handle('dev-trigger-update', () => {
+    const fakeInfo = {
+      version: 'v99.0.0',
+      releaseUrl: 'https://github.com',
+      releaseNotes: '## テスト\n- テスト項目1\n- **太字**テスト\n\n### 修正\n- バグ修正サンプル',
+      downloadUrl: null,
+    };
+    pendingUpdateInfo = fakeInfo;
+    mainWindow?.webContents.send('update-available', fakeInfo);
+  });
+}
+
 ipcMain.handle('open-login-window', async () => {
   try {
     await openLoginWindow();
