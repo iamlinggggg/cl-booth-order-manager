@@ -32,8 +32,16 @@ export interface SyncStatus {
   nextSyncAt: number;     // Unix timestamp
   secondsUntilNext: number;
   isLoggedIn: boolean;
+  autoSyncEnabled: boolean;
   syncProgress: SyncProgress | null;
 }
+
+export interface SyncSettings {
+  autoSyncEnabled: boolean;
+  syncIntervalHours: number;
+}
+
+export type ViewMode = 'list' | 'grid';
 
 export interface ItemInfo {
   itemName: string;
@@ -53,6 +61,13 @@ export interface ManualOrderInput {
   downloadLinks: { label: string; url: string }[];
 }
 
+export interface UpdateInfo {
+  version: string;
+  releaseUrl: string;
+  releaseNotes: string;
+  downloadUrl: string | null;
+}
+
 // Electron IPC API (window.electronAPI)
 export interface ElectronAPI {
   getClPort: () => Promise<number | null>;
@@ -60,10 +75,15 @@ export interface ElectronAPI {
   openLoginWindow: () => Promise<{ ok: boolean; error?: string }>;
   openExternal: (url: string) => Promise<void>;
   showInFolder: (path: string) => Promise<void>;
-  selectFolder: () => Promise<string | null>;
+  selectFolder: () => Promise<string[]>;
+  getUpdateInfo: () => Promise<UpdateInfo | null>;
+  downloadUpdate: () => Promise<void>;
+  applyUpdate: () => Promise<void>;
   onLoginSuccess: (callback: () => void) => () => void;
   onBackendReady: (callback: (port: number) => void) => () => void;
   onBackendError: (callback: (err: string) => void) => () => void;
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
+  onDownloadProgress: (callback: (p: { downloaded: number; total: number }) => void) => () => void;
 }
 
 declare global {

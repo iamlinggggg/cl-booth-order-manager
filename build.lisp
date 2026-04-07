@@ -4,14 +4,6 @@
 
 (ql:quickload :cl-booth-library-manager :silent t)
 
-;; ---------------------------------------------------------------------------
-;; CFFI DLL 検索パス設定 (重要)
-;;
-;; CFFI は sb-ext:*init-hooks* に reopen-foreign-libraries を登録している。
-;; push は先頭追加なので、ここで push したフックが CFFI のフックより先に実行される。
-;; これにより、イメージ復元時に exe ディレクトリを検索パスへ追加してから
-;; CFFI が DLL を再ロードするようになる。
-;; ---------------------------------------------------------------------------
 (push (lambda ()
         (handler-case
             (let ((exe-dir (directory-namestring
@@ -24,7 +16,7 @@
             (force-output *error-output*))))
       sb-ext:*init-hooks*)
 
-;; ビルド時にロードされている外部ライブラリ一覧を表示 (バンドル対象DLL確認用)
+;; ビルド時にロードされている外部ライブラリ一覧を表示
 (format t "~%=== Loaded foreign libraries ===~%")
 (dolist (lib (cffi:list-foreign-libraries :loaded-only t))
   (let ((path (cffi:foreign-library-pathname lib)))

@@ -9,6 +9,7 @@ import {
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
 // ---------------------------------------------------------------------------
 // CL backend process management
@@ -158,6 +159,65 @@ function stopBackend() {
   if (clProcess) {
     clProcess.kill('SIGTERM');
     clProcess = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Update check
+// ---------------------------------------------------------------------------
+
+const GITHUB_RELEASES_URL =
+  'https://api.github.com/repos/iamlinggggg/cl-booth-order-manager/releases/latest';
+
+interface UpdateInfo {
+  version: string;
+  releaseUrl: string;
+  releaseNotes: string;
+  downloadUrl: string | null;
+}
+
+let pendingUpdateInfo: UpdateInfo | null = null;
+let pendingUpdateTmpPath: string | null = null;
+
+function compareSemver(a: string, b: string): number {
+  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+  const [aMajor, aMinor, aPatch] = parse(a);
+  const [bMajor, bMinor, bPatch] = parse(b);
+  return aMajor !== bMajor ? aMajor - bMajor
+    : aMinor !== bMinor ? aMinor - bMinor
+    : aPatch - bPatch;
+}
+
+async function checkForUpdates() {
+  try {
+    const res = await fetch(GITHUB_RELEASES_URL, {
+      headers: { 'User-Agent': 'cl-booth-library-manager' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return;
+    const data = await res.json() as {
+      tag_name: string;
+      html_url: string;
+      body: string;
+      assets: { name: string; browser_download_url: string }[];
+    };
+    const latestVersion = data.tag_name;
+    const currentVersion = app.getVersion();
+    if (compareSemver(latestVersion, currentVersion) > 0) {
+      // ポータブル exe アセットを探す (Setup/nsis を除外)
+      const exeAsset = data.assets.find(
+        (a) => a.name.endsWith('.exe') && !a.name.toLowerCase().includes('setup')
+      );
+      pendingUpdateInfo = {
+        version: latestVersion,
+        releaseUrl: data.html_url,
+        releaseNotes: data.body ?? '',
+        downloadUrl: exeAsset?.browser_download_url ?? null,
+      };
+      mainWindow?.webContents.send('update-available', pendingUpdateInfo);
+    }
+  } catch (_) {
+    // ネットワークエラー等は無視
   }
 }
 
@@ -312,6 +372,63 @@ async function extractAndSendCookies(sess: Electron.Session) {
 
 ipcMain.handle('get-cl-port', () => clPort);
 ipcMain.handle('get-backend-error', () => clBackendError);
+ipcMain.handle('get-update-info', () => pendingUpdateInfo);
+
+ipcMain.handle('download-update', async (event) => {
+  if (!pendingUpdateInfo?.downloadUrl) {
+    throw new Error('ダウンロードURLがありません');
+  }
+  const url = pendingUpdateInfo.downloadUrl;
+  const tmpPath = path.join(os.tmpdir(), `booth-update-${Date.now()}.exe`);
+
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'cl-booth-library-manager' },
+    signal: AbortSignal.timeout(600000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const total = parseInt(res.headers.get('content-length') ?? '0', 10);
+  const reader = res.body!.getReader();
+  let downloaded = 0;
+  const chunks: Buffer[] = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const buf = Buffer.from(value);
+    chunks.push(buf);
+    downloaded += buf.length;
+    if (!event.sender.isDestroyed()) {
+      event.sender.send('update-download-progress', { downloaded, total });
+    }
+  }
+
+  fs.writeFileSync(tmpPath, Buffer.concat(chunks));
+  pendingUpdateTmpPath = tmpPath;
+});
+
+ipcMain.handle('apply-update', () => {
+  if (!pendingUpdateTmpPath || !fs.existsSync(pendingUpdateTmpPath)) {
+    throw new Error('アップデートファイルが見つかりません');
+  }
+  const currentExePath = app.getPath('exe');
+  // 現在の exe を .old にリネームしてから新 exe を配置し再起動するバッチスクリプト
+  const script = [
+    '@echo off',
+    'ping 127.0.0.1 -n 4 > nul',
+    `move /y "${pendingUpdateTmpPath}" "${currentExePath}"`,
+    `start "" "${currentExePath}"`,
+    'del "%~f0"',
+  ].join('\r\n');
+  const scriptPath = path.join(os.tmpdir(), 'booth-update.bat');
+  fs.writeFileSync(scriptPath, script, 'ascii');
+  spawn('cmd.exe', ['/c', scriptPath], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  }).unref();
+  app.quit();
+});
 
 ipcMain.handle('open-login-window', async () => {
   try {
@@ -332,10 +449,15 @@ ipcMain.handle('show-in-folder', (_event, filePath: string) => {
 
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
-    properties: ['openDirectory'],
+    properties: ['openFile', 'openDirectory', 'multiSelections'],
+    filters: [
+      { name: 'ZIP ファイル', extensions: ['zip'] },
+      { name: 'すべてのファイル', extensions: ['*'] },
+    ],
   });
-  return result.canceled ? null : result.filePaths[0] ?? null;
+  return result.canceled ? [] : result.filePaths;
 });
+
 
 // ---------------------------------------------------------------------------
 // App lifecycle
@@ -345,13 +467,18 @@ async function init() {
   // ウィンドウを先に作成してバックエンド起動を待たない
   createMainWindow();
 
-  try {
-    await startBackend();
+  // バックエンド起動とアップデートチェックを並行実行
+  const [backendResult] = await Promise.allSettled([
+    startBackend(),
+    checkForUpdates(),
+  ]);
+
+  if (backendResult.status === 'fulfilled') {
     console.log('[main] Backend ready on port:', clPort);
     mainWindow?.webContents.send('backend-ready', clPort);
-  } catch (err) {
-    console.error('[main] Failed to start backend:', err);
-    mainWindow?.webContents.send('backend-error', String(err));
+  } else {
+    console.error('[main] Failed to start backend:', backendResult.reason);
+    mainWindow?.webContents.send('backend-error', String(backendResult.reason));
   }
 }
 

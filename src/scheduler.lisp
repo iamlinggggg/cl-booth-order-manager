@@ -11,9 +11,10 @@
 (defvar *last-synced-at* 0 "最終同期Unixタイムスタンプ (メモリキャッシュ)")
 (defvar *sync-fn* nil "スクレイピングを実行するコールバック関数")
 (defvar *sync-progress* nil "同期進捗 plist: (:section :page :items-fetched)")
+(defvar *auto-sync-enabled* t "自動同期有効フラグ")
+(defvar *sync-interval-hours* 1 "自動同期間隔（時間）: 1~6")
 
-(defconstant +min-interval-seconds+ (* 55 60)  "最小スクレイピング間隔: 55分")
-(defconstant +interval-seconds+     (* 60 60)  "通常スクレイピング間隔: 60分")
+(defconstant +min-interval-seconds+ (* 60 60) "手動・自動同期共通の最小間隔: 1時間")
 
 ;;; ---------------------------------------------------------------------------
 ;;; Helpers
@@ -26,11 +27,16 @@
 (defun seconds-since-last-sync ()
   (- (unix-now) *last-synced-at*))
 
+(defun auto-sync-interval-seconds ()
+  "設定された自動同期間隔を秒で返す"
+  (* *sync-interval-hours* 3600))
+
 (defun can-sync-p ()
-  "55分以上経過 かつ ログイン済み かつ 現在同期中でない"
-  (and (not *is-syncing*)
+  "自動同期有効 かつ 設定間隔以上経過 かつ ログイン済み かつ 現在同期中でない"
+  (and *auto-sync-enabled*
+       (not *is-syncing*)
        (cl-booth-library-manager.db:is-logged-in)
-       (>= (seconds-since-last-sync) +min-interval-seconds+)))
+       (>= (seconds-since-last-sync) (auto-sync-interval-seconds))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Core sync
@@ -194,7 +200,8 @@
 (defun start (&key sync-fn)
   "スケジューラーを開始する。sync-fnは現在未使用 (内部でdo-syncを直接呼ぶ)"
   (declare (ignore sync-fn))
-  ;; DBから最終同期時刻を復元
+  ;; DBから設定と最終同期時刻を復元
+  (load-settings)
   (setf *last-synced-at*
         (or (cl-booth-library-manager.db:get-last-synced-at) 0))
 
@@ -224,20 +231,56 @@
   (format t "[scheduler] Stopped~%"))
 
 (defun trigger-sync ()
-  "手動同期トリガー (強制的に実行する)"
-  (if (cl-booth-library-manager.db:is-logged-in)
-      (bordeaux-threads:make-thread
-       (lambda () (do-sync :force t))  ;; ← ここに :force t を追加！
-       :name "booth-manual-sync")
-      (error "ログインしていません")))
+  "手動同期トリガー。最低1時間の間隔を強制する"
+  (unless (cl-booth-library-manager.db:is-logged-in)
+    (error "ログインしていません"))
+  (when *is-syncing*
+    (error "既に同期中です"))
+  (let ((elapsed (seconds-since-last-sync)))
+    (when (< elapsed +min-interval-seconds+)
+      (let ((remaining (- +min-interval-seconds+ elapsed)))
+        (error "前回の同期から1時間経過していません (あと~A分~A秒)"
+               (floor remaining 60) (mod remaining 60)))))
+  (bordeaux-threads:make-thread
+   (lambda () (do-sync :force t))
+   :name "booth-manual-sync"))
+
+(defun get-settings ()
+  "現在の同期設定を返す"
+  (list :auto-sync-enabled  *auto-sync-enabled*
+        :sync-interval-hours *sync-interval-hours*))
+
+(defun set-auto-sync (enabled)
+  "自動同期の有効/無効を設定してDBに永続化する"
+  (setf *auto-sync-enabled* (not (null enabled)))
+  (cl-booth-library-manager.db:save-setting
+   "auto-sync" (if *auto-sync-enabled* "true" "false")))
+
+(defun set-sync-interval (hours)
+  "自動同期間隔（時間）を設定してDBに永続化する。1~6の範囲に制限"
+  (let ((clamped (max 1 (min 6 (round hours)))))
+    (setf *sync-interval-hours* clamped)
+    (cl-booth-library-manager.db:save-setting
+     "sync-interval-hours" (format nil "~A" clamped))))
+
+(defun load-settings ()
+  "DBから設定を読み込んでメモリに反映する"
+  (let ((auto-sync (cl-booth-library-manager.db:get-setting "auto-sync" "true"))
+        (interval  (cl-booth-library-manager.db:get-setting "sync-interval-hours" "1")))
+    (setf *auto-sync-enabled* (string= auto-sync "true"))
+    (setf *sync-interval-hours*
+          (max 1 (min 6 (or (parse-integer interval :junk-allowed t) 1))))))
 
 (defun get-status ()
   "同期ステータスを返す"
-  (let ((next-at (+ *last-synced-at* +interval-seconds+))
-        (now (unix-now)))
-    (list :is-syncing      *is-syncing*
-          :last-synced-at  *last-synced-at*
-          :next-sync-at    next-at
-          :seconds-until-next (max 0 (- next-at now))
-          :is-logged-in    (cl-booth-library-manager.db:is-logged-in)
-          :sync-progress   *sync-progress*)))
+  (let* ((interval (auto-sync-interval-seconds))
+         (next-at  (+ *last-synced-at* interval))
+         (now      (unix-now)))
+    (list :is-syncing          *is-syncing*
+          :last-synced-at      *last-synced-at*
+          :next-sync-at        next-at
+          :seconds-until-next  (max 0 (- next-at now))
+          :is-logged-in        (cl-booth-library-manager.db:is-logged-in)
+          :sync-progress       *sync-progress*
+          :auto-sync-enabled   *auto-sync-enabled*
+          :sync-interval-hours *sync-interval-hours*)))

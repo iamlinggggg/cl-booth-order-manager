@@ -34,6 +34,9 @@ Common Lisp と TypeScript (WebView2) を組み合わせて開発された、Win
 ## 開発にあたって
 このリポジトリは、Lisp による Windows デスクトップアプリ開発のプラクティス（CFFI を用いた Win32 API/WebView2 の呼び出しや、TypeScript 製フロントエンドとの連携）を模索するために作成されました。
 
+## 問い合わせ
+本アプリケーションに関する問い合わせ、不具合報告はGitHubのissue、または制作者のTwitter(現X):@IAMLinggggg のダイレクトメッセージにて承っております。
+
 ## ライセンス
 本プロジェクトは **MIT License** のもとで公開されています。
 
@@ -42,5 +45,4 @@ Common Lisp と TypeScript (WebView2) を組み合わせて開発された、Win
 
 ---
 Copyright (c) 2026 iamlinggggg
-
 

@@ -195,6 +195,26 @@
       (format nil "~A" unix-timestamp))))
 
 ;;; ---------------------------------------------------------------------------
+;;; Generic settings (sync_state テーブルを共用、キープレフィックス "setting:")
+;;; ---------------------------------------------------------------------------
+
+(defun save-setting (key value)
+  "設定値を sync_state テーブルに保存する"
+  (with-db
+    (sqlite:execute-non-query *db*
+      "INSERT OR REPLACE INTO sync_state (key, value) VALUES (?, ?)"
+      (concatenate 'string "setting:" key)
+      value)))
+
+(defun get-setting (key &optional default)
+  "設定値を sync_state テーブルから取得する。未設定の場合は default を返す"
+  (let ((val (with-db
+               (sqlite:execute-single *db*
+                 "SELECT value FROM sync_state WHERE key = ?"
+                 (concatenate 'string "setting:" key)))))
+    (or val default)))
+
+;;; ---------------------------------------------------------------------------
 ;;; Orders CRUD
 ;;; ---------------------------------------------------------------------------
 

@@ -118,6 +118,14 @@
             (cl-ppcre:scan "^/api/thumbnails/\\d+$" uri))
        (handle-get-thumbnail uri))
 
+      ;; GET /api/settings  (同期設定取得)
+      ((and (eq method :get) (string= uri "/api/settings"))
+       (handle-get-settings))
+
+      ;; PUT /api/settings  (同期設定更新)
+      ((and (eq method :put) (string= uri "/api/settings"))
+       (handle-update-settings))
+
       ;; POST /api/item-info  (商品情報取得)
       ((and (eq method :post) (string= uri "/api/item-info"))
        (handle-item-info))
@@ -282,16 +290,17 @@
       (set-json-headers)
       (let ((progress (getf status :sync-progress)))
         (jonathan:to-json
-         (list :|isSyncing| (if (getf status :is-syncing) t :false)
-               :|lastSyncedAt| (getf status :last-synced-at)
-               :|nextSyncAt| (getf status :next-sync-at)
+         (list :|isSyncing|        (if (getf status :is-syncing) t :false)
+               :|lastSyncedAt|     (getf status :last-synced-at)
+               :|nextSyncAt|       (getf status :next-sync-at)
                :|secondsUntilNext| (getf status :seconds-until-next)
-               :|isLoggedIn| (if (getf status :is-logged-in) t :false)
-               :|syncProgress| (if progress
-                                   (list :|section|      (getf progress :section)
-                                         :|page|         (getf progress :page)
-                                         :|itemsFetched| (getf progress :items-fetched))
-                                   nil)))))))
+               :|isLoggedIn|       (if (getf status :is-logged-in) t :false)
+               :|autoSyncEnabled|  (if (getf status :auto-sync-enabled) t :false)
+               :|syncProgress|     (if progress
+                                       (list :|section|      (getf progress :section)
+                                             :|page|         (getf progress :page)
+                                             :|itemsFetched| (getf progress :items-fetched))
+                                       nil)))))))
 
 (defun handle-get-thumbnail (uri)
   (cl-ppcre:register-groups-bind (id-str)
@@ -316,13 +325,33 @@
                   (setf (hunchentoot:return-code*) 404)
                   (jonathan:to-json (list :|ok| nil :|error| "No thumbnail")))))))))
 
+(defun handle-get-settings ()
+  (with-error-handling
+    (let ((s (cl-booth-library-manager.scheduler:get-settings)))
+      (json-ok
+       (list :|autoSyncEnabled|   (if (getf s :auto-sync-enabled) t :false)
+             :|syncIntervalHours| (getf s :sync-interval-hours))))))
+
+(defun handle-update-settings ()
+  (with-error-handling
+    (let* ((body     (read-json-body))
+           (interval (getf body :|syncIntervalHours|)))
+      ;; autoSyncEnabled: JSON false は CL nil として届くため member で存在確認
+      (when (member :|autoSyncEnabled| body)
+        (cl-booth-library-manager.scheduler:set-auto-sync
+         (not (null (getf body :|autoSyncEnabled|)))))
+      (when (and interval (numberp interval))
+        (cl-booth-library-manager.scheduler:set-sync-interval interval))
+      (json-ok (list :|message| "Settings updated")))))
+
 (defun handle-item-info ()
   (with-error-handling
-    (let* ((body (read-json-body))
-           (url  (getf body :|url|)))
+    (let* ((body    (read-json-body))
+           (url     (getf body :|url|))
+           (cookies (cl-booth-library-manager.db:get-cookies)))
       (unless url
         (return-from handle-item-info (json-error "Missing 'url' field")))
-      (let ((info (cl-booth-library-manager.scraper:fetch-item-info url)))
+      (let ((info (cl-booth-library-manager.scraper:fetch-item-info url cookies)))
         (json-ok
          (list :|itemName|     (getf info :item-name)
                :|shopName|     (getf info :shop-name)

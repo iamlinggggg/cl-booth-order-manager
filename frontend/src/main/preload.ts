@@ -22,9 +22,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showInFolder: (path: string): Promise<void> =>
     ipcRenderer.invoke('show-in-folder', path),
 
-  // フォルダ選択ダイアログを開く
-  selectFolder: (): Promise<string | null> =>
+  // フォルダ/ファイル選択ダイアログを開く (複数選択対応)
+  selectFolder: (): Promise<string[]> =>
     ipcRenderer.invoke('select-folder'),
+
+  // アップデート情報を取得 (起動時にチェック済みの結果)
+  getUpdateInfo: (): Promise<{ version: string; releaseUrl: string; releaseNotes: string; downloadUrl: string | null } | null> =>
+    ipcRenderer.invoke('get-update-info'),
+
+  // アップデート通知イベントのリスナー
+  onUpdateAvailable: (callback: (info: { version: string; releaseUrl: string; releaseNotes: string; downloadUrl: string | null }) => void) => {
+    const handler = (_: unknown, info: { version: string; releaseUrl: string; releaseNotes: string; downloadUrl: string | null }) => callback(info);
+    ipcRenderer.on('update-available', handler);
+    return () => ipcRenderer.removeListener('update-available', handler);
+  },
+
+  // アップデートをダウンロードする
+  downloadUpdate: (): Promise<void> =>
+    ipcRenderer.invoke('download-update'),
+
+  // ダウンロード進捗イベントのリスナー
+  onDownloadProgress: (callback: (p: { downloaded: number; total: number }) => void) => {
+    const handler = (_: unknown, p: { downloaded: number; total: number }) => callback(p);
+    ipcRenderer.on('update-download-progress', handler);
+    return () => ipcRenderer.removeListener('update-download-progress', handler);
+  },
+
+  // ダウンロード済みのアップデートを適用して再起動する
+  applyUpdate: (): Promise<void> =>
+    ipcRenderer.invoke('apply-update'),
 
   // ログイン成功イベントのリスナー
   onLoginSuccess: (callback: () => void) => {

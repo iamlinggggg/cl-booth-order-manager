@@ -5,7 +5,10 @@ import { LoginPanel } from './components/LoginPanel';
 import { ManualAddDialog } from './components/ManualAddDialog';
 import { StatusBar } from './components/StatusBar';
 import { SyncProgressOverlay } from './components/SyncProgressOverlay';
+import { UpdateDialog } from './components/UpdateDialog';
+import { SettingsPanel } from './components/SettingsPanel';
 import { useOrders } from './hooks/useOrders';
+import { ViewMode } from './types';
 import { useSyncStatus } from './hooks/useSyncStatus';
 import { useApi } from './hooks/useApi';
 
@@ -16,6 +19,12 @@ export const App: React.FC = () => {
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loginChecked, setLoginChecked] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<import('./types').UpdateInfo | null>(null);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<'library' | 'settings'>('library');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return (localStorage.getItem('viewMode') as ViewMode) ?? 'list';
+  });
 
   // ログイン状態はsyncStatusから取得
   const isLoggedIn = status?.isLoggedIn ?? false;
@@ -26,6 +35,17 @@ export const App: React.FC = () => {
       setLoginChecked(true);
     }
   }, [isReady]);
+
+  // アップデートチェック: 起動時に確認済みの結果を取得 + リアルタイム通知を購読
+  useEffect(() => {
+    window.electronAPI.getUpdateInfo().then((info) => {
+      if (info) setUpdateInfo(info);
+    });
+    const unsub = window.electronAPI.onUpdateAvailable((info) => {
+      setUpdateInfo(info);
+    });
+    return unsub;
+  }, []);
 
   // 同期完了時にオーダーリストを自動更新
   const prevIsSyncing = React.useRef<boolean | null>(null);
@@ -56,6 +76,11 @@ export const App: React.FC = () => {
   const handleOrderAdded = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem('viewMode', mode);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white select-none">
@@ -95,6 +120,50 @@ export const App: React.FC = () => {
         </div>
       </header>
 
+      {/* アップデート通知バナー */}
+      {updateInfo && !showUpdateDialog && (
+        <div className="flex items-center justify-between px-4 py-2 bg-booth-pink/20 border-b border-booth-pink/40 text-sm">
+          <span className="text-booth-pink">
+            新しいバージョン <strong>{updateInfo.version}</strong> が利用可能です
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowUpdateDialog(true)}
+              className="px-3 py-1 bg-booth-pink hover:bg-booth-pink/80 text-white rounded text-xs font-medium transition-colors"
+            >
+              詳細を見る
+            </button>
+            <button
+              onClick={() => setUpdateInfo(null)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* タブナビゲーション */}
+      {isReady && (
+        <div className="flex border-b border-gray-700 bg-gray-900 px-6">
+          {([['library', 'ライブラリ'], ['settings', '設定']] as const).map(([tab, label]) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === tab
+                  ? 'border-booth-pink text-white'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* メインコンテンツ */}
       <main className="flex-1 overflow-hidden flex flex-col">
         {!isReady ? (
@@ -116,6 +185,11 @@ export const App: React.FC = () => {
               )}
             </div>
           </div>
+        ) : activeTab === 'settings' ? (
+          <SettingsPanel
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+          />
         ) : status?.isSyncing && orders.length === 0 ? (
           /* 初回同期: フルオーバーレイ */
           <SyncProgressOverlay progress={status.syncProgress} />
@@ -145,13 +219,14 @@ export const App: React.FC = () => {
               error={error}
               onDelete={deleteOrder}
               onEdit={setEditingOrder}
+              viewMode={viewMode}
             />
           </>
         )}
       </main>
 
       {/* ステータスバー */}
-      <StatusBar status={status} error={statusError} />
+      <StatusBar status={status} error={statusError} onSyncTriggered={refetchStatus} />
 
       {/* 手動追加ダイアログ */}
       {showManualAdd && (
@@ -167,6 +242,14 @@ export const App: React.FC = () => {
           editOrder={editingOrder}
           onClose={() => setEditingOrder(null)}
           onAdded={handleOrderAdded}
+        />
+      )}
+
+      {/* アップデートダイアログ */}
+      {showUpdateDialog && updateInfo && (
+        <UpdateDialog
+          info={updateInfo}
+          onDismiss={() => setShowUpdateDialog(false)}
         />
       )}
     </div>

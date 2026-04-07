@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { Order } from '../types';
+import { Order, ViewMode } from '../types';
 import { OrderCard } from './OrderCard';
 
 interface Props {
@@ -8,11 +8,12 @@ interface Props {
   error: string | null;
   onDelete: (id: number) => void;
   onEdit: (order: Order) => void;
+  viewMode: ViewMode;
 }
 
 type FilterType = 'all' | 'scraped' | 'manual';
 
-export const OrderList: React.FC<Props> = ({ orders, loading, error, onDelete, onEdit }) => {
+export const OrderList: React.FC<Props> = ({ orders, loading, error, onDelete, onEdit, viewMode }) => {
   const [inputValue, setInputValue] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -120,10 +121,16 @@ export const OrderList: React.FC<Props> = ({ orders, loading, error, onDelete, o
                 : '検索条件に一致する商品がありません'}
             </p>
           </div>
+        ) : viewMode === 'grid' ? (
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+            {filtered.map((order) => (
+              <OrderCard key={order.id} order={order} onDelete={onDelete} onEdit={onEdit} viewMode="grid" />
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
             {filtered.map((order) => (
-              <OrderCard key={order.id} order={order} onDelete={onDelete} onEdit={onEdit} />
+              <OrderCard key={order.id} order={order} onDelete={onDelete} onEdit={onEdit} viewMode="list" />
             ))}
           </div>
         )}

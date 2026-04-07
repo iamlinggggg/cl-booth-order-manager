@@ -33,6 +33,8 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded, editOrder }
   const [fetchingInfo, setFetchingInfo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [r18Error, setR18Error] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   // 編集モード: 既存のDLリンクを取得して初期値に設定
   useEffect(() => {
@@ -55,6 +57,7 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded, editOrder }
     if (!itemUrl.trim()) return;
     setFetchingInfo(true);
     setError(null);
+    setR18Error(false);
     try {
       const info = await post<ItemInfo>('/api/item-info', { url: itemUrl.trim() });
       setPreview(info);
@@ -63,9 +66,27 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded, editOrder }
       if (info.thumbnailUrl) setThumbnailUrl(info.thumbnailUrl);
       if (info.price) setPrice(info.price);
     } catch (e) {
-      setError(`商品情報の取得に失敗しました: ${e}`);
+      if (String(e).includes('R18') || String(e).includes('年齢確認')) {
+        setR18Error(true);
+      } else {
+        setError(`商品情報の取得に失敗しました: ${e}`);
+      }
     } finally {
       setFetchingInfo(false);
+    }
+  };
+
+  const handleLoginAndFetch = async () => {
+    setLoggingIn(true);
+    try {
+      const result = await window.electronAPI.openLoginWindow();
+      if (result.ok) {
+        // Cookieがバックエンドに反映されるまで少し待つ
+        await new Promise((r) => setTimeout(r, 1500));
+        await fetchItemInfo();
+      }
+    } finally {
+      setLoggingIn(false);
     }
   };
 
@@ -82,8 +103,16 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded, editOrder }
   };
 
   const selectFolder = async (id: number) => {
-    const path = await window.electronAPI.selectFolder();
-    if (path) updateDlEntry(id, 'url', path);
+    const paths = await window.electronAPI.selectFolder();
+    if (paths.length === 0) return;
+    // 1つ目は現在のエントリを更新、2つ目以降は新規エントリとして追加
+    updateDlEntry(id, 'url', paths[0]);
+    if (paths.length > 1) {
+      setDlEntries((prev) => [
+        ...prev,
+        ...paths.slice(1).map((p) => ({ id: Date.now() + Math.random(), label: '', url: p, type: 'local' as const })),
+      ]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,7 +169,7 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded, editOrder }
             <label className="block text-sm text-gray-300 mb-1">商品URL (省略可)</label>
             <div className="flex gap-2">
               <input
-                type="url"
+                type="text"
                 value={itemUrl}
                 onChange={(e) => setItemUrl(e.target.value)}
                 placeholder="https://booth.pm/ja/items/..."
@@ -251,7 +280,7 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded, editOrder }
                   </div>
                   {entry.type === 'url' ? (
                     <input
-                      type="url"
+                      type="text"
                       value={entry.url}
                       onChange={(e) => updateDlEntry(entry.id, 'url', e.target.value)}
                       placeholder="https://..."
@@ -280,6 +309,30 @@ export const ManualAddDialog: React.FC<Props> = ({ onClose, onAdded, editOrder }
               ))}
             </div>
           </div>
+
+          {r18Error && (
+            <div className="flex items-start gap-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-4 py-3">
+              <svg className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-yellow-300 text-sm font-medium">R18コンテンツです</p>
+                <p className="text-yellow-400/80 text-xs mt-0.5">
+                  BOOTHにログインすると商品情報を自動取得できます
+                </p>
+                <button
+                  type="button"
+                  onClick={handleLoginAndFetch}
+                  disabled={loggingIn || fetchingInfo}
+                  className="mt-2 px-3 py-1.5 bg-booth-pink hover:bg-booth-pink/80 text-white
+                             text-xs rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {loggingIn ? 'ログイン中...' : fetchingInfo ? '取得中...' : 'ログインして取得'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-red-400 text-sm">{error}</p>}
 

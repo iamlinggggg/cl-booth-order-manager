@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>cl-booth-library-manager</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="cl-booth-library-manager">cl-booth-library-manager</h1>
+<p>Common Lisp と TypeScript (WebView2) を組み合わせて開発された、Windows 向けの BOOTH ライブラリ管理アプリケーションです。</p>
+<h2 id="概要">概要</h2>
+<p>本プロジェクトは、<strong>Common Lisp の学習の一環</strong>として作成された個人用アプリケーションです。BOOTH で購入したアイテムの管理を、デスクトップ上でシームレスに行うことを目的としています。</p>
+<h2 id="ダウンロード">ダウンロード</h2>
+<p>最新の実行ファイル（EXE形式）は、以下の Releases ページよりダウンロードいただけます。</p>
+<p><a href="https://github.com/iamlinggggg/cl-booth-library-manager/releases"><strong>Download cl-booth-library-manager (Releases)</strong></a></p>
+<h2 id="技術スタック">技術スタック</h2>
+<ul>
+<li><strong>Backend:</strong> Common Lisp (ASDF, CFFI)</li>
+<li><strong>Frontend:</strong> TypeScript / HTML / CSS (WebView2 上で動作)</li>
+<li><strong>OS:</strong> Windows</li>
+</ul>
+<h2 id="主な機能と仕組み">主な機能と仕組み</h2>
+<h3 id="1-webview-による認証とリスト化">1. WebView による認証とリスト化</h3>
+<p>アプリケーション起動後、「ログイン」ボタンを押下することで WebView2 ウィンドウが立ち上がります。</p>
+<ul>
+<li>ユーザーが自身の BOOTH アカウント情報を入力してログインすることで、ライブラリへのアクセスに必要な Cookie を取得します。</li>
+<li>取得した Cookie をもとに、ライブラリ一覧を自動的に取得・表示します。</li>
+</ul>
+<h3 id="2-セキュリティとプライバシー">2. セキュリティとプライバシー</h3>
+<p>ユーザーの認証情報の保護の為、以下の設計を行っています。</p>
+<ul>
+<li><strong>暗号化保存</strong>: 入手した Cookie はプレーンテキストではなく、ローカルディレクトリ内に<strong>暗号化された状態</strong>で保存されます。</li>
+<li><strong>外部送信の禁止</strong>: 取得した認証情報やライブラリのリストが、開発者のサーバーを含む<strong>外部の第三者へ送信されることは一切ありません</strong>。通信は BOOTH (pixiv) 公式ドメインとの間でのみ行われます。</li>
+</ul>
+<h3 id="3-手動登録モード">3. 手動登録モード</h3>
+<p>「WebView 経由でアカウント情報を入力することに抵抗がある」という場合や、特定のアイテムのみを管理したい方向けに、<strong>手動登録機能</strong>を備えています。アカウント連携を行わずに、ローカルの管理ツールとして利用することも可能です。</p>
+<h2 id="開発にあたって">開発にあたって</h2>
+<p>このリポジトリは、Lisp による Windows デスクトップアプリ開発のプラクティス（CFFI を用いた Win32 API/WebView2 の呼び出しや、TypeScript 製フロントエンドとの連携）を模索するために作成されました。</p>
+<h2 id="問い合わせ">問い合わせ</h2>
+<p>本アプリケーションに関する問い合わせ、不具合報告はGitHubのissue、または制作者のTwitter(現X):@IAMLinggggg のダイレクトメッセージにて承っております。</p>
+<h2 id="ライセンス">ライセンス</h2>
+<p>本プロジェクトは <strong>MIT License</strong> のもとで公開されています。</p>
+<h2 id="問い合わせ-1">問い合わせ</h2>
+<p>本アプリケーションに関する問い合わせ、不具合報告はGitHubのissue、または制作者のTwitter(現X):@IAMLinggggg のダイレクトメッセージにて承っております。</p>
+<hr>
+<p>Copyright (c) 2026 iamlinggggg</p>
+
+            
+            
+        </body>
+        </html>

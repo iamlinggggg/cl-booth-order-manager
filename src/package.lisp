@@ -25,7 +25,9 @@
            #:get-order-downloads
            #:add-manual-order
            #:update-manual-order
-           #:delete-order))
+           #:delete-order
+           #:save-setting
+           #:get-setting))
 
 (defpackage :cl-booth-library-manager.scraper
   (:use :cl)
@@ -40,7 +42,10 @@
   (:export #:start
            #:stop
            #:trigger-sync
-           #:get-status))
+           #:get-status
+           #:get-settings
+           #:set-auto-sync
+           #:set-sync-interval))
 
 (defpackage :cl-booth-library-manager.api
   (:use :cl)

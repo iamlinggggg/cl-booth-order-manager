@@ -225,10 +225,22 @@
 ;;; Item info scraping (手動登録用)
 ;;; ---------------------------------------------------------------------------
 
-(defun fetch-item-info (item-url)
-  "商品ページのURLから商品情報を取得する (ログイン不要)"
-  (let* ((html (fetch-html item-url))
+(defun age-verification-page-p (doc)
+  "年齢確認ページかどうかを判定する"
+  (let ((body-text (plump:text doc))
+        (form-action (or (node-attr doc "form" "action") "")))
+    (or (search "年齢確認" body-text)
+        (search "age_check" form-action)
+        (not (null (lquery:$ doc "form[action*='age_check']" (node))))
+        (not (null (lquery:$ doc ".age-confirmation" (node)))))))
+
+(defun fetch-item-info (item-url &optional cookies-json)
+  "商品ページのURLから商品情報を取得する。cookies-jsonが指定された場合は認証付きで取得"
+  (let* ((html (fetch-html item-url cookies-json))
          (doc (plump:parse html)))
+    ;; 年齢確認ページが返された場合はエラー
+    (when (age-verification-page-p doc)
+      (error "この商品はR18コンテンツです。ログイン後に再度お試しください。"))
     (list :item-name
           (or (node-text doc "h1.item-name, .item-name h1, h1[class*='item'], h1")
               (node-text doc "title"))
