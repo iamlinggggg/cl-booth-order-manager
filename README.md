@@ -37,8 +37,9 @@ Common Lisp と TypeScript (WebView2) を組み合わせて開発された、Win
 ## ライセンス
 本プロジェクトは **MIT License** のもとで公開されています。
 
+## 問い合わせ
+本アプリケーションに関する問い合わせ、不具合報告はGitHubのissueに投稿するか、制作者のTwitter(現X):@IAMLinggggg のダイレクトメッセージにてお願いいたします。
 ---
 Copyright (c) 2026 iamlinggggg
 
-開発にあたって
-このリポジトリは、LispによるWindowsデスクトップアプリ開発のプラクティス（CFFIを用いたWin32 API/WebView2の呼び出しや、TS製フロントエンドとの連携）を模索するために作成されました。
+
