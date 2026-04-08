@@ -13,7 +13,7 @@ import { useSyncStatus } from './hooks/useSyncStatus';
 import { useApi } from './hooks/useApi';
 
 export const App: React.FC = () => {
-  const { post, isReady, backendError } = useApi();
+  const { post, get, put, isReady, backendError } = useApi();
   const { orders, loading, error, refetch, deleteOrder } = useOrders();
   const { status, error: statusError, refetch: refetchStatus } = useSyncStatus();
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -22,9 +22,7 @@ export const App: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<import('./types').UpdateInfo | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<'library' | 'settings'>('library');
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem('viewMode') as ViewMode) ?? 'list';
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // ログイン状態はsyncStatusから取得
   const isLoggedIn = status?.isLoggedIn ?? false;
@@ -35,6 +33,14 @@ export const App: React.FC = () => {
       setLoginChecked(true);
     }
   }, [isReady]);
+
+  // バックエンドから viewMode を復元
+  useEffect(() => {
+    if (!isReady) return;
+    get<import('./types').SyncSettings>('/api/settings').then((s) => {
+      if (s?.viewMode) setViewMode(s.viewMode);
+    }).catch(() => {});
+  }, [isReady, get]);
 
   // アップデートチェック: 起動時に確認済みの結果を取得 + リアルタイム通知を購読
   useEffect(() => {
@@ -79,8 +85,8 @@ export const App: React.FC = () => {
 
   const handleViewModeChange = useCallback((mode: ViewMode) => {
     setViewMode(mode);
-    localStorage.setItem('viewMode', mode);
-  }, []);
+    put('/api/settings', { viewMode: mode }).catch(() => {});
+  }, [put]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white select-none">

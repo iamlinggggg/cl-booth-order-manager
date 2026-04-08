@@ -28,9 +28,13 @@ export interface SyncProgress {
 
 export interface SyncStatus {
   isSyncing: boolean;
-  lastSyncedAt: number;   // Unix timestamp
-  nextSyncAt: number;     // Unix timestamp
+  syncMode: 'DIFFERENTIAL' | 'FULL' | null;
+  lastSyncedAt: number;         // Unix timestamp
+  lastFullSyncedAt: number;     // Unix timestamp
+  nextSyncAt: number;           // Unix timestamp
+  nextFullSyncAt: number;       // Unix timestamp
   secondsUntilNext: number;
+  secondsUntilFullSync: number;
   isLoggedIn: boolean;
   autoSyncEnabled: boolean;
   syncProgress: SyncProgress | null;
@@ -39,6 +43,8 @@ export interface SyncStatus {
 export interface SyncSettings {
   autoSyncEnabled: boolean;
   syncIntervalHours: number;
+  fullSyncIntervalHours: number;
+  viewMode: ViewMode;
 }
 
 export type ViewMode = 'list' | 'grid';

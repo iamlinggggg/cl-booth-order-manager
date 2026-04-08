@@ -74,11 +74,11 @@
       ((and (eq method :post) (string= uri "/api/cookies"))
        (handle-set-cookies))
 
-      ;; DELETE /api/cookies  (後方互換)
+      ;; DELETE /api/cookies
       ((and (eq method :delete) (string= uri "/api/cookies"))
        (handle-clear-cookies))
 
-      ;; POST /api/logout  (推奨)
+      ;; POST /api/logout
       ((and (eq method :post) (string= uri "/api/logout"))
        (handle-clear-cookies))
 
@@ -105,9 +105,13 @@
             (cl-ppcre:scan "^/api/orders/\\d+$" uri))
        (handle-delete-order uri))
 
-      ;; POST /api/sync  (即時同期)
+      ;; POST /api/sync  (即時差分同期)
       ((and (eq method :post) (string= uri "/api/sync"))
        (handle-trigger-sync))
+
+      ;; POST /api/sync/full  (即時全件同期)
+      ((and (eq method :post) (string= uri "/api/sync/full"))
+       (handle-trigger-full-sync))
 
       ;; GET /api/sync/status
       ((and (eq method :get) (string= uri "/api/sync/status"))
@@ -280,8 +284,17 @@
   (with-error-handling
     (handler-case
         (progn
-          (cl-booth-library-manager.scheduler:trigger-sync)
-          (json-ok (list :|message| "Sync started")))
+          (cl-booth-library-manager.scheduler:trigger-sync :mode :differential)
+          (json-ok (list :|message| "Differential sync started")))
+      (error (c)
+        (json-error (format nil "~A" c))))))
+
+(defun handle-trigger-full-sync ()
+  (with-error-handling
+    (handler-case
+        (progn
+          (cl-booth-library-manager.scheduler:trigger-sync :mode :full)
+          (json-ok (list :|message| "Full sync started")))
       (error (c)
         (json-error (format nil "~A" c))))))
 
@@ -289,19 +302,24 @@
   (with-error-handling
     (let ((status (cl-booth-library-manager.scheduler:get-status)))
       (set-json-headers)
-      (let ((progress (getf status :sync-progress)))
+      (let ((progress (getf status :sync-progress))
+            (mode     (getf status :sync-mode)))
         (jonathan:to-json
-         (list :|isSyncing|        (if (getf status :is-syncing) t :false)
-               :|lastSyncedAt|     (getf status :last-synced-at)
-               :|nextSyncAt|       (getf status :next-sync-at)
-               :|secondsUntilNext| (getf status :seconds-until-next)
-               :|isLoggedIn|       (if (getf status :is-logged-in) t :false)
-               :|autoSyncEnabled|  (if (getf status :auto-sync-enabled) t :false)
-               :|syncProgress|     (if progress
-                                       (list :|section|      (getf progress :section)
-                                             :|page|         (getf progress :page)
-                                             :|itemsFetched| (getf progress :items-fetched))
-                                       nil)))))))
+         (list :|isSyncing|              (if (getf status :is-syncing) t :false)
+               :|syncMode|               (if mode (symbol-name mode) nil)
+               :|lastSyncedAt|           (getf status :last-synced-at)
+               :|lastFullSyncedAt|       (getf status :last-full-synced-at)
+               :|nextSyncAt|             (getf status :next-sync-at)
+               :|nextFullSyncAt|         (getf status :next-full-sync-at)
+               :|secondsUntilNext|       (getf status :seconds-until-next)
+               :|secondsUntilFullSync|   (getf status :seconds-until-full-sync)
+               :|isLoggedIn|             (if (getf status :is-logged-in) t :false)
+               :|autoSyncEnabled|        (if (getf status :auto-sync-enabled) t :false)
+               :|syncProgress|           (if progress
+                                             (list :|section|      (getf progress :section)
+                                                   :|page|         (getf progress :page)
+                                                   :|itemsFetched| (getf progress :items-fetched))
+                                             nil)))))))
 
 (defun handle-get-thumbnail (uri)
   (cl-ppcre:register-groups-bind (id-str)
@@ -330,19 +348,28 @@
   (with-error-handling
     (let ((s (cl-booth-library-manager.scheduler:get-settings)))
       (json-ok
-       (list :|autoSyncEnabled|   (if (getf s :auto-sync-enabled) t :false)
-             :|syncIntervalHours| (getf s :sync-interval-hours))))))
+       (list :|autoSyncEnabled|       (if (getf s :auto-sync-enabled) t :false)
+             :|syncIntervalHours|     (getf s :sync-interval-hours)
+             :|fullSyncIntervalHours| (getf s :full-sync-interval-hours)
+             :|viewMode|              (cl-booth-library-manager.db:get-setting "view-mode" "list"))))))
 
 (defun handle-update-settings ()
   (with-error-handling
-    (let* ((body     (read-json-body))
-           (interval (getf body :|syncIntervalHours|)))
+    (let* ((body              (read-json-body))
+           (interval          (getf body :|syncIntervalHours|))
+           (full-interval     (getf body :|fullSyncIntervalHours|))
+           (view-mode         (getf body :|viewMode|)))
       ;; autoSyncEnabled: JSON false は CL nil として届くため member で存在確認
       (when (member :|autoSyncEnabled| body)
         (cl-booth-library-manager.scheduler:set-auto-sync
          (not (null (getf body :|autoSyncEnabled|)))))
       (when (and interval (numberp interval))
         (cl-booth-library-manager.scheduler:set-sync-interval interval))
+      (when (and full-interval (numberp full-interval))
+        (cl-booth-library-manager.scheduler:set-full-sync-interval full-interval))
+      (when (and view-mode (stringp view-mode)
+                 (member view-mode '("list" "grid") :test #'string=))
+        (cl-booth-library-manager.db:save-setting "view-mode" view-mode))
       (json-ok (list :|message| "Settings updated")))))
 
 (defun handle-item-info ()

@@ -122,7 +122,7 @@ export const OrderList: React.FC<Props> = ({ orders, loading, error, onDelete, o
             </p>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+          <div className="grid gap-3 items-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
             {filtered.map((order) => (
               <OrderCard key={order.id} order={order} onDelete={onDelete} onEdit={onEdit} viewMode="grid" />
             ))}

@@ -175,29 +175,40 @@
       (list :orders (nreverse orders)
             :next-url next-url))))
 
-(defun fetch-orders (cookies-json &key progress-callback)
-  "ライブラリとギフトページをスクレイピングし、注文plistのリストを返す"
+(defun fetch-orders (cookies-json &key progress-callback stop-predicate)
+  "ライブラリとギフトページをスクレイピングし、注文plistのリストを返す。
+   stop-predicate が指定されている場合、各ページの取得後に (funcall stop-predicate page-orders) を呼び、
+   truthy が返ればそのセクションの取得を打ち切る (差分同期用)"
   (let ((all-orders '())
         (start-urls '(("library" . "https://accounts.booth.pm/library")
                       ("gifts"   . "https://accounts.booth.pm/library/gifts"))))
     (dolist (entry start-urls)
       (let ((section (car entry))
             (url     (cdr entry))
-            (page    1))
-        (loop while url do
+            (page    1)
+            (stopped nil))
+        (loop while (and url (not stopped)) do
           (format t "[scraper] Fetching: ~A~%" url)
           (when progress-callback
             (funcall progress-callback section page (length all-orders)))
-          (let* ((html   (fetch-html url cookies-json))
-                 (result (parse-library-page html url)))
-            (setf all-orders (append all-orders (getf result :orders)))
-            (let ((next (getf result :next-url)))
-              (if (and next (not (string= next url)))
-                  (progn
-                    (setf url next)
-                    (incf page)
-                    (sleep 2.0))
-                  (setf url nil)))))))
+          (let* ((html        (fetch-html url cookies-json))
+                 (result      (parse-library-page html url))
+                 (page-orders (getf result :orders)))
+            (setf all-orders (append all-orders page-orders))
+            ;; 差分同期: このページが全て既知なら打ち切り
+            (when (and stop-predicate
+                       (> (length page-orders) 0)
+                       (funcall stop-predicate page-orders))
+              (format t "[scraper] Stop predicate triggered at ~A page ~A~%" section page)
+              (setf stopped t))
+            (unless stopped
+              (let ((next (getf result :next-url)))
+                (if (and next (not (string= next url)))
+                    (progn
+                      (setf url next)
+                      (incf page)
+                      (sleep 2.0))
+                    (setf url nil))))))))
     (format t "[scraper] Total items fetched from library: ~A~%" (length all-orders))
     all-orders))
 

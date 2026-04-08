@@ -411,12 +411,17 @@ ipcMain.handle('apply-update', () => {
   if (!pendingUpdateTmpPath || !fs.existsSync(pendingUpdateTmpPath)) {
     throw new Error('アップデートファイルが見つかりません');
   }
-  const currentExePath = app.getPath('exe');
+  // ポータブルexeの場合、app.getPath('exe') は一時展開フォルダを指す。
+  // PORTABLE_EXECUTABLE_FILE がユーザーが実際に起動した元のexeパス。
+  const currentExePath = (process.env.PORTABLE_EXECUTABLE_FILE as string | undefined)
+    ?? app.getPath('exe');
   // 現在の exe を .old にリネームしてから新 exe を配置し再起動するバッチスクリプト
   const script = [
     '@echo off',
-    'ping 127.0.0.1 -n 4 > nul',
+    ':waitloop',
+    'ping 127.0.0.1 -n 2 > nul',
     `move /y "${pendingUpdateTmpPath}" "${currentExePath}"`,
+    'if errorlevel 1 goto waitloop',
     `start "" "${currentExePath}"`,
     'del "%~f0"',
   ].join('\r\n');
@@ -463,9 +468,14 @@ ipcMain.handle('show-in-folder', (_event, filePath: string) => {
 
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
-    properties: ['openFile', 'openDirectory', 'multiSelections'],
+    properties: ['openFile', 'multiSelections'],
     filters: [
-      { name: 'ZIP ファイル', extensions: ['zip'] },
+      {
+        name: 'ダウンロードファイル',
+        extensions: ['zip', '7z', 'unitypackage', 'png', 'jpg', 'jpeg', 'gif',
+                     'pdf', 'exe', 'blend', 'fbx', 'vrm', 'vrmx', 'pmx',
+                     'psd', 'clip', 'mp3', 'wav', 'mp4', 'mov'],
+      },
       { name: 'すべてのファイル', extensions: ['*'] },
     ],
   });

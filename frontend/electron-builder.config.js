@@ -29,19 +29,11 @@ module.exports = {
   win: {
     target: [
       {
-        target: 'nsis',
+        target: 'portable',
         arch: ['x64'],
       },
     ],
     icon: 'assets/icon.ico',
-  },
-
-  nsis: {
-    oneClick: false,
-    allowToChangeInstallationDirectory: true,
-    createDesktopShortcut: true,
-    createStartMenuShortcut: true,
-    shortcutName: 'BOOTH Library Manager',
   },
 
   mac: {

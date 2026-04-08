@@ -45,7 +45,9 @@
            #:get-status
            #:get-settings
            #:set-auto-sync
-           #:set-sync-interval))
+           #:set-sync-interval
+           #:set-full-sync-interval
+           #:load-settings))
 
 (defpackage :cl-booth-library-manager.api
   (:use :cl)

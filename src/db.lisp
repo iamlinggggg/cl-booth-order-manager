@@ -31,12 +31,46 @@
       (ensure-directories-exist dir)
       dir)))
 
+(defun migrate-download-links-unique ()
+  "download_links に UNIQUE(order_id, url) 制約を追加するマイグレーション。
+   既存DBに制約が無い場合のみ実行し、重複行は id が小さい行を残して除去する。"
+  (with-db
+    (let* ((ddl (sqlite:execute-single *db*
+                  "SELECT sql FROM sqlite_master WHERE type='table' AND name='download_links'"))
+           (has-unique (and ddl (search "UNIQUE" ddl))))
+      (unless has-unique
+        (format t "[db] Migrating download_links: adding UNIQUE(order_id, url)...~%")
+        (sqlite:execute-non-query *db* "PRAGMA foreign_keys = OFF")
+        (sqlite:execute-non-query *db*
+          "CREATE TABLE download_links_new (
+             id         INTEGER PRIMARY KEY AUTOINCREMENT,
+             order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+             label      TEXT DEFAULT '',
+             url        TEXT NOT NULL,
+             created_at TEXT DEFAULT (datetime('now')),
+             UNIQUE(order_id, url)
+           )")
+        ;; 重複行を除去しながらコピー (id が最小の行を残す)
+        (sqlite:execute-non-query *db*
+          "INSERT OR IGNORE INTO download_links_new (id, order_id, label, url, created_at)
+           SELECT MIN(id), order_id, label, url, MIN(created_at)
+           FROM download_links
+           GROUP BY order_id, url")
+        (sqlite:execute-non-query *db* "DROP TABLE download_links")
+        (sqlite:execute-non-query *db*
+          "ALTER TABLE download_links_new RENAME TO download_links")
+        (sqlite:execute-non-query *db*
+          "CREATE INDEX IF NOT EXISTS idx_download_links_order_id ON download_links(order_id)")
+        (sqlite:execute-non-query *db* "PRAGMA foreign_keys = ON")
+        (format t "[db] Migration complete~%")))))
+
 (defun init-db (&optional path)
   "DBを初期化する。pathが省略された場合はデフォルトパスを使用"
   (let ((db-path (or path
                      (merge-pathnames "orders.db" (get-app-data-dir)))))
     (setf *db* (sqlite:connect (uiop:native-namestring db-path)))
     (create-schema)
+    (migrate-download-links-unique)
     (format t "DB initialized: ~A~%" db-path)
     *db*))
 
@@ -74,7 +108,8 @@
          order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
          label      TEXT DEFAULT '',
          url        TEXT NOT NULL,
-         created_at TEXT DEFAULT (datetime('now'))
+         created_at TEXT DEFAULT (datetime('now')),
+         UNIQUE(order_id, url)
        )")
     (sqlite:execute-non-query *db*
       "CREATE TABLE IF NOT EXISTS sync_state (

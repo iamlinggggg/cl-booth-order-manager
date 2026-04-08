@@ -1,4 +1,4 @@
-(defsystem "cl-booth-library-manager"
+(asdf:defsystem "cl-booth-library-manager"
   :version "0.2.0"
   :author "iamlinggggg"
   :license "MIT"
